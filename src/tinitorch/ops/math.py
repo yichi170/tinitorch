@@ -1,7 +1,7 @@
 """Mathematical operations."""
 
-from ..tensor import Tensor
 from ..storage import Storage
+from ..tensor import Tensor
 
 
 def add(a: Tensor, b: Tensor) -> Tensor:

@@ -1,14 +1,13 @@
 """Tensor implementation for TiniTorch."""
 
-from typing import Self, Union, Tuple, Optional, List as ListType
+from typing import Self
 
-
-from .dtype import DType, float32
 from .device import Device
+from .dtype import DType
 from .storage import Storage
 
 
-def _infer_shape(data) -> Tuple[int, ...]:
+def _infer_shape(data) -> tuple[int, ...]:
     if not isinstance(data, list):
         return ()
 
@@ -20,7 +19,7 @@ def _infer_shape(data) -> Tuple[int, ...]:
     return tuple(shape)
 
 
-def _flatten(data) -> ListType:
+def _flatten(data) -> list:
     if not isinstance(data, list):
         return [data]
 
@@ -33,7 +32,7 @@ def _flatten(data) -> ListType:
     return result
 
 
-def _compute_numel(shape: Tuple[int, ...]) -> int:
+def _compute_numel(shape: tuple[int, ...]) -> int:
     if not shape:
         return 1
     result = 1
@@ -42,7 +41,7 @@ def _compute_numel(shape: Tuple[int, ...]) -> int:
     return result
 
 
-def compute_strides(shape: Tuple[int, ...]) -> Tuple[int, ...]:
+def compute_strides(shape: tuple[int, ...]) -> tuple[int, ...]:
     if not shape:
         return ()
     strides = [1] * len(shape)
@@ -58,9 +57,9 @@ class Tensor:
 
     def __init__(
         self,
-        data: Union[list, Storage, Self],
-        dtype: Optional[DType] = DType.FLOAT32,
-        device: Union[str, Device] = "cpu",
+        data: list | Storage | Self,
+        dtype: DType | None = DType.FLOAT32,
+        device: str | Device = "cpu",
         requires_grad: bool = False,
     ):
         """
@@ -97,11 +96,11 @@ class Tensor:
         self.grad_fn = None
 
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def shape(self) -> tuple[int, ...]:
         return self._shape
 
     @property
-    def strides(self) -> Tuple[int, ...]:
+    def strides(self) -> tuple[int, ...]:
         return self._strides
 
     @property
@@ -111,7 +110,7 @@ class Tensor:
     def numel(self) -> int:
         return _compute_numel(self._shape)
 
-    def _compute_flat_index(self, indices: Tuple[int, ...]) -> int:
+    def _compute_flat_index(self, indices: tuple[int, ...]) -> int:
         """Convert multi-dim indices to flat storage index."""
         flat_idx = self._offset
         for i, stride in zip(indices, self._strides):
@@ -130,7 +129,7 @@ class Tensor:
         flat_idx = self._compute_flat_index(indices)
         return self._data[flat_idx]
 
-    def to(self, device: Union[str, Device]) -> "Tensor":
+    def to(self, device: str | Device) -> "Tensor":
         device = Device(device) if isinstance(device, str) else device
         if device == self.device:
             return self
@@ -158,4 +157,6 @@ class Tensor:
         return f"Tensor(shape={self._shape}, dtype={self.dtype}, device={self.device})"
 
     def __str__(self):
-        return f"tensor(shape={self._shape}, data={self._data[:10]}{'...' if len(self._data) > 10 else ''})"
+        preview = self._data[:10]
+        suffix = "..." if len(self._data) > 10 else ""
+        return f"tensor(shape={self._shape}, data={preview}{suffix})"

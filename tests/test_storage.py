@@ -1,8 +1,9 @@
 """Tests for Storage class."""
 
 import pytest
+
+from tinitorch.dtype import float32, int32
 from tinitorch.storage import Storage
-from tinitorch.dtype import DType, float32, int32
 
 
 def test_storage_creation():

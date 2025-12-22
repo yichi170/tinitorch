@@ -1,6 +1,7 @@
 """Tests for Tensor class."""
 
 import pytest
+
 import tinitorch as tt
 
 

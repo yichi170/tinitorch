@@ -5,11 +5,9 @@ Multiple Tensors can share the same Storage (views).
 """
 
 import struct
-from typing import Union
 
-from .dtype import DType
 from .device import Device
-
+from .dtype import DType
 
 # Bytes per element for each dtype
 DTYPE_SIZES = {
@@ -68,7 +66,7 @@ class Storage:
     def nbytes(self) -> int:
         return self._nbytes
 
-    def __getitem__(self, idx: int) -> Union[int, float]:
+    def __getitem__(self, idx: int) -> int | float:
         if idx < 0 or idx >= self.size:
             raise IndexError(f"Index {idx} out of range for size {self.size}")
 
@@ -77,7 +75,7 @@ class Storage:
         (value,) = struct.unpack_from(self._format, self._data, offset)
         return value
 
-    def __setitem__(self, idx: int, value: Union[int, float]):
+    def __setitem__(self, idx: int, value: int | float):
         if idx < 0 or idx >= self.size:
             raise IndexError(f"Index {idx} out of range for size {self.size}")
 
@@ -85,7 +83,7 @@ class Storage:
         # Pack value into bytes
         struct.pack_into(self._format, self._data, offset, value)
 
-    def fill(self, value: Union[int, float]):
+    def fill(self, value: int | float):
         for i in range(self.size):
             self[i] = value
 
