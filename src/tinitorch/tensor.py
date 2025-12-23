@@ -153,6 +153,161 @@ class Tensor:
 
         return mul(self, other)
 
+    def __neg__(self):
+        from .ops import neg
+
+        return neg(self)
+
+    def __sub__(self, other):
+        from .ops import sub
+
+        return sub(self, other)
+
+    def __truediv__(self, other):
+        from .ops import div
+
+        return div(self, other)
+
+    def __matmul__(self, other):
+        from .ops import matmul
+
+        return matmul(self, other)
+
+    def __setitem__(self, indices, value):
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+
+        if len(indices) != self.ndim:
+            raise NotImplementedError("Slicing not yet implemented, use full indices")
+
+        flat_idx = self._compute_flat_index(indices)
+        self._data[flat_idx] = value
+
+    def is_contiguous(self) -> bool:
+        """Check if tensor is contiguous in memory (row-major order)."""
+        expected_strides = compute_strides(self._shape)
+        return self._strides == expected_strides and self._offset == 0
+
+    def contiguous(self) -> Self:
+        """Return contiguous tensor (copy if necessary)."""
+        if self.is_contiguous():
+            return self
+
+        new_storage = Storage(self.numel(), self.dtype, self.device)
+        for i in range(self.numel()):
+            indices = []
+            remaining = i
+            for dim in self._shape:
+                indices.append(
+                    remaining // _compute_numel(self._shape[len(indices) + 1 :])
+                )
+                remaining %= _compute_numel(self._shape[len(indices) :])
+            new_storage[i] = self[tuple(indices)]
+
+        result = Tensor.__new__(Tensor)
+        result._data = new_storage
+        result._shape = self._shape
+        result._strides = compute_strides(self._shape)
+        result._offset = 0
+        result.dtype = self.dtype
+        result.device = self.device
+        result.requires_grad = self.requires_grad
+        result.grad = None
+        result.grad_fn = None
+        return result
+
+    def view(self, *new_shape: int) -> Self:
+        if not self.is_contiguous():
+            raise RuntimeError(
+                "view requires contiguous tensor, call .contiguous() first"
+            )
+
+        # Handle -1 dimension
+        new_shape = list(new_shape)
+        neg_idx = None
+        known_numel = 1
+        for i, dim in enumerate(new_shape):
+            if dim == -1:
+                if neg_idx is not None:
+                    raise ValueError("Only one dimension can be -1")
+                neg_idx = i
+            else:
+                known_numel *= dim
+
+        if neg_idx is not None:
+            new_shape[neg_idx] = self.numel() // known_numel
+
+        # Validate total elements
+        new_numel = _compute_numel(tuple(new_shape))
+        if new_numel != self.numel():
+            raise ValueError(
+                f"Cannot reshape tensor of {self.numel()} elements to {new_shape}"
+            )
+
+        result = Tensor.__new__(Tensor)
+        result._data = self._data
+        result._shape = tuple(new_shape)
+        result._strides = compute_strides(tuple(new_shape))
+        result._offset = self._offset
+        result.dtype = self.dtype
+        result.device = self.device
+        result.requires_grad = self.requires_grad
+        result.grad = None
+        result.grad_fn = None
+        return result
+
+    def reshape(self, *new_shape: int) -> Self:
+        try:
+            return self.view(*new_shape)
+        except RuntimeError:
+            return self.contiguous().view(*new_shape)
+
+    def transpose(self, dim0: int, dim1: int) -> Self:
+        if dim0 < 0:
+            dim0 = self.ndim + dim0
+        if dim1 < 0:
+            dim1 = self.ndim + dim1
+
+        if dim0 >= self.ndim or dim1 >= self.ndim:
+            raise IndexError(f"Dimension out of range for {self.ndim}D tensor")
+
+        # Swap shape and strides
+        new_shape = list(self._shape)
+        new_strides = list(self._strides)
+        new_shape[dim0], new_shape[dim1] = new_shape[dim1], new_shape[dim0]
+        new_strides[dim0], new_strides[dim1] = new_strides[dim1], new_strides[dim0]
+
+        result = Tensor.__new__(Tensor)
+        result._data = self._data
+        result._shape = tuple(new_shape)
+        result._strides = tuple(new_strides)
+        result._offset = self._offset
+        result.dtype = self.dtype
+        result.device = self.device
+        result.requires_grad = self.requires_grad
+        result.grad = None
+        result.grad_fn = None
+        return result
+
+    @property
+    def T(self) -> Self:
+        if self.ndim < 2:
+            return self
+        return self.transpose(-2, -1)
+
+    def clone(self) -> Self:
+        result = Tensor.__new__(Tensor)
+        result._data = self._data.copy()
+        result._shape = self._shape
+        result._strides = compute_strides(self._shape)
+        result._offset = 0
+        result.dtype = self.dtype
+        result.device = self.device
+        result.requires_grad = self.requires_grad
+        result.grad = None
+        result.grad_fn = None
+        return result
+
     def __repr__(self):
         return f"Tensor(shape={self._shape}, dtype={self.dtype}, device={self.device})"
 
