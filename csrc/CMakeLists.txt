@@ -1,4 +1,8 @@
-add_library(tinitorch_core STATIC ttcore/ops.cpp)
+add_library(tinitorch_core STATIC
+    ttcore/dtype.cpp
+    ttcore/ops.cpp
+    ttcore/tensor_impl.cpp
+)
 
 target_include_directories(tinitorch_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
