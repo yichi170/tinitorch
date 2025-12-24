@@ -7,7 +7,9 @@ authors = [
     { name = "yichi170", email = "yichi170@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "nanobind>=2.10.2",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
