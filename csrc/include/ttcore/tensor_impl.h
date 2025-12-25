@@ -13,6 +13,9 @@ class TensorImpl {
 public:
     TensorImpl(std::vector<int64_t> shape, DType dtype, Device device);
 
+    TensorImpl(std::vector<int64_t> shape, const std::vector<double>& data, DType dtype,
+               Device device);
+
     // Create view (shares storage)
     TensorImpl(std::shared_ptr<Storage> storage, std::vector<int64_t> shape,
                std::vector<int64_t> strides, int64_t offset, DType dtype, Device device);

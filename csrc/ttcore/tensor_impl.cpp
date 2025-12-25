@@ -34,6 +34,23 @@ TensorImpl::TensorImpl(std::vector<int64_t> shape, DType dtype, Device device)
     storage_ = std::make_shared<Storage>(static_cast<size_t>(numel_), dtype, device);
 }
 
+TensorImpl::TensorImpl(std::vector<int64_t> shape, const std::vector<double>& data, DType dtype,
+                       Device device)
+    : shape_(std::move(shape)),
+      strides_(compute_strides(shape_)),
+      offset_(0),
+      dtype_(dtype),
+      device_(device) {
+    numel_ = compute_numel(shape_);
+    if (static_cast<int64_t>(data.size()) != numel_) {
+        throw std::runtime_error("data size does not match shape");
+    }
+    storage_ = std::make_shared<Storage>(static_cast<size_t>(numel_), dtype, device);
+    for (int64_t i = 0; i < numel_; ++i) {
+        set_flat(i, data[i]);
+    }
+}
+
 TensorImpl::TensorImpl(std::shared_ptr<Storage> storage, std::vector<int64_t> shape,
                        std::vector<int64_t> strides, int64_t offset, DType dtype, Device device)
     : storage_(std::move(storage)),
