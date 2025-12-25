@@ -21,7 +21,27 @@ NB_MODULE(_C, m) {
 
     nb::class_<ttcore::TensorImpl>(m, "TensorImpl")
         .def(nb::init<std::vector<int64_t>, ttcore::DType, ttcore::Device>())
+
         .def_prop_ro("shape", &ttcore::TensorImpl::shape)
+        .def_prop_ro("strides", &ttcore::TensorImpl::strides)
+        .def_prop_ro("ndim", &ttcore::TensorImpl::ndim)
         .def_prop_ro("dtype", &ttcore::TensorImpl::dtype)
-        .def_prop_ro("device", &ttcore::TensorImpl::device);
+        .def_prop_ro("device", &ttcore::TensorImpl::device)
+        .def_prop_ro("T", &ttcore::TensorImpl::T)
+
+        .def("numel", &ttcore::TensorImpl::numel)
+        .def("is_contiguous", &ttcore::TensorImpl::is_contiguous)
+        .def("view", &ttcore::TensorImpl::view)
+        .def("transpose", &ttcore::TensorImpl::transpose)
+        .def("contiguous", &ttcore::TensorImpl::contiguous)
+        .def("clone", &ttcore::TensorImpl::clone)
+
+        .def("__getitem__",
+             [](const ttcore::TensorImpl& self, const std::vector<int64_t>& indices) {
+                 return self.get(indices);
+             })
+        .def("__setitem__",
+             [](ttcore::TensorImpl& self, const std::vector<int64_t>& indices, double value) {
+                 self.set(indices, value);
+             });
 }

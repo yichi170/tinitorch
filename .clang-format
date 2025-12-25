@@ -21,7 +21,7 @@ AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: true
+AllowShortLambdasOnASingleLine: None
 
 # Alignment
 AlignAfterOpenBracket: Align
