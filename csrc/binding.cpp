@@ -49,8 +49,6 @@ NB_MODULE(_C, m) {
     m.doc() = "TiniTorch C++ core";
 
     nb::enum_<ttcore::DType>(m, "DType")
-        .value("Int32", ttcore::DType::Int32)
-        .value("Int64", ttcore::DType::Int64)
         .value("Float32", ttcore::DType::Float32)
         .value("Float64", ttcore::DType::Float64);
 

@@ -39,8 +39,6 @@ def _convert_dtype_for_cpp(dtype: DType):
     from . import _C
 
     dtype_map = {
-        DType.INT32: _C.DType.Int32,
-        DType.INT64: _C.DType.Int64,
         DType.FLOAT32: _C.DType.Float32,
         DType.FLOAT64: _C.DType.Float64,
     }

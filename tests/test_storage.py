@@ -2,7 +2,7 @@
 
 import pytest
 
-from tinitorch.dtype import float32, int32
+from tinitorch.dtype import float32
 from tinitorch.storage import Storage
 
 
@@ -24,17 +24,6 @@ def test_storage_read_write():
     assert s[0] == pytest.approx(1.5)
     assert s[1] == pytest.approx(2.5)
     assert s[2] == pytest.approx(3.5)
-
-
-def test_storage_int32():
-    s = Storage(3, int32)
-    s[0] = 100
-    s[1] = 200
-    s[2] = 300
-
-    assert s[0] == 100
-    assert s[1] == 200
-    assert s[2] == 300
 
 
 def test_storage_fill():

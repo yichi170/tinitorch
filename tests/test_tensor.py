@@ -13,9 +13,6 @@ def test_tensor_creation():
     t = tt.Tensor([[1, 2], [3, 4]])
     assert t.shape == (2, 2)
 
-    t = tt.Tensor([1, 2, 3], dtype=tt.int32)
-    assert t.dtype == tt.int32
-
 
 def test_tensor_properties():
     t = tt.Tensor([[1, 2, 3], [4, 5, 6]])

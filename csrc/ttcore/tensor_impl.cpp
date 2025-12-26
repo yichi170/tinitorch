@@ -86,10 +86,6 @@ double TensorImpl::get_flat(int64_t idx) const {
             return static_cast<double>(storage_->get<float>(idx));
         case DType::Float64:
             return storage_->get<double>(idx);
-        case DType::Int32:
-            return static_cast<double>(storage_->get<int32_t>(idx));
-        case DType::Int64:
-            return static_cast<double>(storage_->get<int64_t>(idx));
         default:
             throw std::runtime_error("Unknown dtype");
     }
@@ -102,12 +98,6 @@ void TensorImpl::set_flat(int64_t idx, double value) {
             break;
         case DType::Float64:
             storage_->set<double>(idx, value);
-            break;
-        case DType::Int32:
-            storage_->set<int32_t>(idx, static_cast<int32_t>(value));
-            break;
-        case DType::Int64:
-            storage_->set<int64_t>(idx, static_cast<int64_t>(value));
             break;
         default:
             throw std::runtime_error("Unknown dtype");

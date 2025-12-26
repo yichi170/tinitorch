@@ -3,7 +3,7 @@
 from .backend import get_available_backends, is_cpp_available
 from .creation import arange, empty, ones, randn, zeros
 from .device import Device
-from .dtype import DType, float32, float64, int32, int64
+from .dtype import DType, float32, float64
 from .ops import add, div, matmul, mul, neg, relu, sub
 from .tensor import Tensor
 
@@ -15,8 +15,6 @@ __all__ = [
     "DType",
     "float32",
     "float64",
-    "int32",
-    "int64",
     "Device",
     # Backend
     "get_available_backends",

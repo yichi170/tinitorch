@@ -13,16 +13,12 @@ from .dtype import DType
 DTYPE_SIZES = {
     DType.FLOAT32: 4,
     DType.FLOAT64: 8,
-    DType.INT32: 4,
-    DType.INT64: 8,
 }
 
 # struct format codes for each dtype
 DTYPE_FORMATS = {
     DType.FLOAT32: "f",
     DType.FLOAT64: "d",
-    DType.INT32: "i",
-    DType.INT64: "q",
 }
 
 
@@ -66,7 +62,7 @@ class Storage:
     def nbytes(self) -> int:
         return self._nbytes
 
-    def __getitem__(self, idx: int) -> int | float:
+    def __getitem__(self, idx: int) -> float:
         if idx < 0 or idx >= self.size:
             raise IndexError(f"Index {idx} out of range for size {self.size}")
 
@@ -75,7 +71,7 @@ class Storage:
         (value,) = struct.unpack_from(self._format, self._data, offset)
         return value
 
-    def __setitem__(self, idx: int, value: int | float):
+    def __setitem__(self, idx: int, value: float):
         if idx < 0 or idx >= self.size:
             raise IndexError(f"Index {idx} out of range for size {self.size}")
 
@@ -83,7 +79,7 @@ class Storage:
         # Pack value into bytes
         struct.pack_into(self._format, self._data, offset, value)
 
-    def fill(self, value: int | float):
+    def fill(self, value: float):
         for i in range(self.size):
             self[i] = value
 
