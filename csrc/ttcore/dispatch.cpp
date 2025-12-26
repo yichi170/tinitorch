@@ -3,7 +3,7 @@
 namespace ttcore {
 Dispatcher registry;
 
-TensorImpl dispatch(std::string op, Device device, DType dtype,
+TensorImpl dispatch(const std::string& op, Device device, DType dtype,
                     const std::vector<TensorImpl*>& inputs) {
     return registry.dispatch(DispatchKey{op, device, dtype}, inputs);
 }

@@ -5,6 +5,16 @@ import pytest
 import tinitorch as tt
 
 
+def test_C_add():
+    a = tt.Tensor([1, 2, 3])
+    b = tt.Tensor([4, 5, 6])
+    c = tt._C.dispatch("add", tt._C.Device.CPU, tt._C.DType.Float32, [a._impl, b._impl])
+    c = tt.Tensor.wrap_impl(c)
+
+    assert list(c.flat_iter()) == pytest.approx([5.0, 7.0, 9.0])
+    assert c.shape == (3,)
+
+
 def test_add():
     """Test element-wise addition."""
     a = tt.Tensor([1, 2, 3])

@@ -40,8 +40,8 @@ private:
     std::unordered_map<DispatchKey, KernelFunc, DispatchKeyHash> kernels;
 };
 
-// expose for binding
-TensorImpl dispatch(std::string op, Device device, DType dtype,
+// exposed for binding
+TensorImpl dispatch(const std::string& op, Device device, DType dtype,
                     const std::vector<TensorImpl*>& inputs);
 
 }  // end namespace ttcore

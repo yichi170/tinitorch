@@ -218,6 +218,26 @@ class Tensor:
         result.grad_fn = None
         return result
 
+    @staticmethod
+    def wrap_impl(new_impl) -> Self:
+        result = Tensor.__new__(Tensor)
+        result._impl = new_impl
+        try:
+            from . import _C
+
+            if isinstance(new_impl, _C.TensorImpl):
+                result._backend = "cpp"
+            else:
+                result._backend = "python"
+        except ImportError:
+            result._backend = "python"
+        result._dtype = new_impl.dtype
+        result._device = new_impl.device
+        result.requires_grad = False
+        result.grad = None
+        result.grad_fn = None
+        return result
+
     def view(self, *new_shape: int) -> Self:
         if self._backend == "cpp":
             new_impl = self._impl.view(list(new_shape))
