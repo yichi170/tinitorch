@@ -11,8 +11,6 @@ from .dtype import DType
 if TYPE_CHECKING:
     from typing import Self
 
-    from .storage import Storage
-
 # Lazy imports to avoid circular dependencies
 _TensorImplPy = None
 _TensorImplCpp = None
@@ -69,7 +67,7 @@ class Tensor:
 
     def __init__(
         self,
-        data: list | Storage | Self,
+        data: list | Self,
         dtype: DType | None = DType.FLOAT32,
         device: str | Device = "cpu",
         requires_grad: bool = False,
@@ -77,7 +75,7 @@ class Tensor:
     ):
         """
         Args:
-            data: Nested list, Storage, or another Tensor.
+            data: Nested list or another Tensor.
             dtype: Data type (default: float32).
             device: Device to place tensor on (default: cpu).
             requires_grad: Whether to track gradients (for autograd).
@@ -253,18 +251,6 @@ class Tensor:
     def clone(self) -> Self:
         new_impl = self._impl.clone()
         return self._wrap_impl(new_impl)
-
-    def tolist(self) -> list:
-        """Convert tensor to nested Python list."""
-        if self.ndim == 0:
-            return self[()]
-        if self.ndim == 1:
-            return [self[i] for i in range(self.shape[0])]
-        # Recursive for higher dims
-        return [
-            Tensor.__new__(Tensor)._set_from_slice(self, i).tolist()
-            for i in range(self.shape[0])
-        ]
 
     def flat_iter(self):
         """Iterate over elements in flat (row-major) order."""

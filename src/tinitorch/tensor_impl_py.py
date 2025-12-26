@@ -64,15 +64,15 @@ class TensorImplPy:
 
     def __init__(
         self,
-        data: list | Storage,
+        data: list,
         dtype: DType = DType.FLOAT32,
         device: Device | str = "cpu",
     ):
         """
-        Create a TensorImpl from nested list or Storage.
+        Create a TensorImpl from nested list.
 
         Args:
-            data: Nested list of numbers or existing Storage.
+            data: Nested list of numbers.
             dtype: Data type for the tensor.
             device: Device to place tensor on.
         """
@@ -84,13 +84,9 @@ class TensorImplPy:
             raise NotImplementedError("CUDA not yet implemented")
         self._device = device
 
-        if isinstance(data, Storage):
-            self._storage = data
-            self._shape = (data.size,)
-        else:
-            self._shape = _infer_shape(data)
-            flat_data = _flatten(data)
-            self._storage = Storage.from_list(flat_data, self._dtype, self._device)
+        self._shape = _infer_shape(data)
+        flat_data = _flatten(data)
+        self._storage = Storage.from_list(flat_data, self._dtype, self._device)
 
         self._strides = _compute_strides(self._shape)
         self._offset = 0
