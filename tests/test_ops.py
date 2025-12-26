@@ -11,11 +11,11 @@ def test_add():
     b = tt.Tensor([4, 5, 6])
     c = tt.add(a, b)
 
-    assert c._data.tolist() == pytest.approx([5.0, 7.0, 9.0])
+    assert list(c.flat_iter()) == pytest.approx([5.0, 7.0, 9.0])
     assert c.shape == (3,)
 
     c = a + b
-    assert c._data.tolist() == pytest.approx([5.0, 7.0, 9.0])
+    assert list(c.flat_iter()) == pytest.approx([5.0, 7.0, 9.0])
 
 
 def test_mul():
@@ -24,11 +24,11 @@ def test_mul():
     b = tt.Tensor([4, 5, 6])
     c = tt.mul(a, b)
 
-    assert c._data.tolist() == pytest.approx([4.0, 10.0, 18.0])
+    assert list(c.flat_iter()) == pytest.approx([4.0, 10.0, 18.0])
     assert c.shape == (3,)
 
     c = a * b
-    assert c._data.tolist() == pytest.approx([4.0, 10.0, 18.0])
+    assert list(c.flat_iter()) == pytest.approx([4.0, 10.0, 18.0])
 
 
 def test_add_2d():
@@ -38,27 +38,27 @@ def test_add_2d():
     c = a + b
 
     assert c.shape == (2, 2)
-    assert c._data.tolist() == pytest.approx([6.0, 8.0, 10.0, 12.0])
+    assert list(c.flat_iter()) == pytest.approx([6.0, 8.0, 10.0, 12.0])
 
 
 def test_neg():
     t = tt.Tensor([1, -2, 3])
     r = -t
-    assert r._data.tolist() == pytest.approx([-1.0, 2.0, -3.0])
+    assert list(r.flat_iter()) == pytest.approx([-1.0, 2.0, -3.0])
 
 
 def test_sub():
     a = tt.Tensor([5, 4, 3])
     b = tt.Tensor([1, 2, 3])
     c = a - b
-    assert c._data.tolist() == pytest.approx([4.0, 2.0, 0.0])
+    assert list(c.flat_iter()) == pytest.approx([4.0, 2.0, 0.0])
 
 
 def test_div():
     a = tt.Tensor([6, 8, 10])
     b = tt.Tensor([2, 4, 5])
     c = a / b
-    assert c._data.tolist() == pytest.approx([3.0, 2.0, 2.0])
+    assert list(c.flat_iter()) == pytest.approx([3.0, 2.0, 2.0])
 
 
 def test_matmul():
@@ -89,7 +89,7 @@ def test_matmul_different_shapes():
 def test_relu():
     t = tt.Tensor([-2, -1, 0, 1, 2])
     r = tt.relu(t)
-    assert r._data.tolist() == pytest.approx([0.0, 0.0, 0.0, 1.0, 2.0])
+    assert list(r.flat_iter()) == pytest.approx([0.0, 0.0, 0.0, 1.0, 2.0])
 
 
 def test_mlp_forward():

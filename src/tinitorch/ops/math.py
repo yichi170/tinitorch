@@ -1,21 +1,42 @@
 """Mathematical operations."""
 
-from ..storage import Storage
-from ..tensor import Tensor, compute_strides
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..tensor import Tensor
 
 
-def _make_result_tensor(storage, shape, dtype, device):
-    """Helper to create result tensor from storage."""
-    result = Tensor.__new__(Tensor)
-    result._data = storage
-    result._shape = shape
-    result._strides = compute_strides(shape)
-    result._offset = 0
-    result.dtype = dtype
-    result.device = device
-    result.requires_grad = False
-    result.grad = None
-    result.grad_fn = None
+def _result_tensor(data: list, source: Tensor, shape: tuple = None) -> Tensor:
+    from ..tensor import Tensor
+
+    if shape is None:
+        shape = source.shape
+    nested = _build_nested(data, shape)
+    return Tensor(
+        nested,
+        dtype=source._dtype,
+        device=source._device,
+        backend=source._backend,
+    )
+
+
+def _build_nested(flat_data: list, shape: tuple) -> list:
+    if len(shape) == 0:
+        return flat_data[0] if flat_data else 0.0
+    if len(shape) == 1:
+        return flat_data[: shape[0]]
+
+    sub_size = 1
+    for dim in shape[1:]:
+        sub_size *= dim
+
+    result = []
+    for i in range(shape[0]):
+        start = i * sub_size
+        end = start + sub_size
+        result.append(_build_nested(flat_data[start:end], shape[1:]))
     return result
 
 
@@ -25,12 +46,8 @@ def add(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
-    result_storage = Storage(a.numel(), a.dtype, a.device)
-
-    for i in range(a.numel()):
-        result_storage[i] = a._data[i] + b._data[i]
-
-    return _make_result_tensor(result_storage, a.shape, a.dtype, a.device)
+    result_data = [a_val + b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
+    return _result_tensor(result_data, a)
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
@@ -39,20 +56,13 @@ def mul(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
-    result_storage = Storage(a.numel(), a.dtype, a.device)
-
-    for i in range(a.numel()):
-        result_storage[i] = a._data[i] * b._data[i]
-
-    return _make_result_tensor(result_storage, a.shape, a.dtype, a.device)
+    result_data = [a_val * b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
+    return _result_tensor(result_data, a)
 
 
 def neg(a: Tensor) -> Tensor:
-    result_storage = Storage(a.numel(), a.dtype, a.device)
-    for i in range(a.numel()):
-        result_storage[i] = -a._data[i]
-
-    return _make_result_tensor(result_storage, a.shape, a.dtype, a.device)
+    result_data = [-val for val in a.flat_iter()]
+    return _result_tensor(result_data, a)
 
 
 def sub(a: Tensor, b: Tensor) -> Tensor:
@@ -61,11 +71,8 @@ def sub(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
-    result_storage = Storage(a.numel(), a.dtype, a.device)
-    for i in range(a.numel()):
-        result_storage[i] = a._data[i] - b._data[i]
-
-    return _make_result_tensor(result_storage, a.shape, a.dtype, a.device)
+    result_data = [a_val - b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
+    return _result_tensor(result_data, a)
 
 
 def div(a: Tensor, b: Tensor) -> Tensor:
@@ -74,11 +81,8 @@ def div(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
-    result_storage = Storage(a.numel(), a.dtype, a.device)
-    for i in range(a.numel()):
-        result_storage[i] = a._data[i] / b._data[i]
-
-    return _make_result_tensor(result_storage, a.shape, a.dtype, a.device)
+    result_data = [a_val / b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
+    return _result_tensor(result_data, a)
 
 
 def matmul(a: Tensor, b: Tensor) -> Tensor:
@@ -94,22 +98,17 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
     _, n = b.shape
     result_shape = (m, n)
 
-    result_storage = Storage(m * n, a.dtype, a.device)
-
+    result_data = []
     for i in range(m):
         for j in range(n):
             total = 0.0
             for p in range(k):
                 total += a[i, p] * b[p, j]
-            result_storage[i * n + j] = total
+            result_data.append(total)
 
-    return _make_result_tensor(result_storage, result_shape, a.dtype, a.device)
+    return _result_tensor(result_data, a, result_shape)
 
 
 def relu(x: Tensor) -> Tensor:
-    result_storage = Storage(x.numel(), x.dtype, x.device)
-    for i in range(x.numel()):
-        val = x._data[i]
-        result_storage[i] = val if val > 0 else 0.0
-
-    return _make_result_tensor(result_storage, x.shape, x.dtype, x.device)
+    result_data = [val if val > 0 else 0.0 for val in x.flat_iter()]
+    return _result_tensor(result_data, x)

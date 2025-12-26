@@ -1,58 +1,70 @@
 """Tensor implementation for TiniTorch."""
 
-from typing import Self
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Literal
+
+from .backend import resolve_backend
 from .device import Device
 from .dtype import DType
-from .storage import Storage
+
+if TYPE_CHECKING:
+    from typing import Self
+
+    from .storage import Storage
+
+# Lazy imports to avoid circular dependencies
+_TensorImplPy = None
+_TensorImplCpp = None
 
 
-def _infer_shape(data) -> tuple[int, ...]:
-    if not isinstance(data, list):
-        return ()
+def _get_impl_class(backend: str):
+    global _TensorImplPy, _TensorImplCpp
 
-    shape = [len(data)]
-    current = data
-    while isinstance(current[0], list):
-        shape.append(len(current[0]))
-        current = current[0]
-    return tuple(shape)
+    if backend == "python":
+        if _TensorImplPy is None:
+            from .tensor_impl_py import TensorImplPy
 
+            _TensorImplPy = TensorImplPy
+        return _TensorImplPy
+    elif backend == "cpp":
+        if _TensorImplCpp is None:
+            from . import _C
 
-def _flatten(data) -> list:
-    if not isinstance(data, list):
-        return [data]
-
-    result = []
-    for item in data:
-        if isinstance(item, list):
-            result.extend(_flatten(item))
-        else:
-            result.append(item)
-    return result
+            _TensorImplCpp = _C.TensorImpl
+        return _TensorImplCpp
+    else:
+        raise ValueError(f"Unknown backend: {backend}")
 
 
-def _compute_numel(shape: tuple[int, ...]) -> int:
-    if not shape:
-        return 1
-    result = 1
-    for dim in shape:
-        result *= dim
-    return result
+def _convert_dtype_for_cpp(dtype: DType):
+    from . import _C
+
+    dtype_map = {
+        DType.INT32: _C.DType.Int32,
+        DType.INT64: _C.DType.Int64,
+        DType.FLOAT32: _C.DType.Float32,
+        DType.FLOAT64: _C.DType.Float64,
+    }
+    return dtype_map[dtype]
 
 
-def compute_strides(shape: tuple[int, ...]) -> tuple[int, ...]:
-    if not shape:
-        return ()
-    strides = [1] * len(shape)
-    for i in range(len(shape) - 2, -1, -1):
-        strides[i] = strides[i + 1] * shape[i + 1]
-    return tuple(strides)
+def _convert_device_for_cpp(device: Device):
+    from . import _C
+
+    if device.type == "cpu":
+        return _C.Device.CPU
+    elif device.type == "cuda":
+        return _C.Device.CUDA
+    else:
+        raise ValueError(f"Unknown device type: {device.type}")
 
 
 class Tensor:
     """
     TiniTorch Tensor - user-facing tensor class.
+
+    Supports both Python and C++ backends via the `backend` parameter.
     """
 
     def __init__(
@@ -61,61 +73,76 @@ class Tensor:
         dtype: DType | None = DType.FLOAT32,
         device: str | Device = "cpu",
         requires_grad: bool = False,
+        backend: Literal["python", "cpp"] | None = None,
     ):
         """
         Args:
-            data: Nested list or another Tensor
-            dtype: Data type (default: float32)
-            device: Device to place tensor on
-            requires_grad: Whether to track gradients (for autograd)
+            data: Nested list, Storage, or another Tensor.
+            dtype: Data type (default: float32).
+            device: Device to place tensor on (default: cpu).
+            requires_grad: Whether to track gradients (for autograd).
+            backend: Implementation backend ("python", "cpp", or None for auto).
         """
-
-        self.dtype = dtype
-
         if isinstance(device, str):
             device = Device(device)
         if device.type != "cpu":
             raise NotImplementedError("CUDA not yet implemented")
 
-        self.device = device
+        self._backend = resolve_backend(backend)
 
         if isinstance(data, Tensor):
-            self._data = data._data.copy()
-            self._shape = data._shape
+            if backend is None:
+                self._backend = data._backend
+            self._impl = data._impl.clone()
         else:
-            self._shape = _infer_shape(data)
-            flat_data = _flatten(data)
-            self._data = Storage.from_list(flat_data, self.dtype, self.device)
+            if self._backend == "cpp":
+                cpp_dtype = _convert_dtype_for_cpp(dtype)
+                cpp_device = _convert_device_for_cpp(device)
+                ImplClass = _get_impl_class("cpp")
+                self._impl = ImplClass(data, cpp_dtype, cpp_device)
+            else:
+                ImplClass = _get_impl_class("python")
+                self._impl = ImplClass(data, dtype, device)
 
-        self._strides = compute_strides(self._shape)
-        self._offset = 0  # Offset into storage (for views/slices)
+        self._dtype = dtype
+        self._device = device
 
         # TODO: support autograd
         self.requires_grad = requires_grad
-        self.grad = None
+        self.grad: Tensor | None = None
         self.grad_fn = None
 
     @property
     def shape(self) -> tuple[int, ...]:
-        return self._shape
+        s = self._impl.shape
+        return tuple(s) if not isinstance(s, tuple) else s
 
     @property
     def strides(self) -> tuple[int, ...]:
-        return self._strides
+        s = self._impl.strides
+        return tuple(s) if not isinstance(s, tuple) else s
 
     @property
     def ndim(self) -> int:
-        return len(self._shape)
+        return self._impl.ndim
+
+    @property
+    def dtype(self) -> DType:
+        return self._dtype
+
+    @property
+    def device(self) -> Device:
+        return self._device
+
+    @property
+    def backend(self) -> str:
+        return self._backend
 
     def numel(self) -> int:
-        return _compute_numel(self._shape)
+        return self._impl.numel()
 
-    def _compute_flat_index(self, indices: tuple[int, ...]) -> int:
-        """Convert multi-dim indices to flat storage index."""
-        flat_idx = self._offset
-        for i, stride in zip(indices, self._strides):
-            flat_idx += i * stride
-        return flat_idx
+    def is_contiguous(self) -> bool:
+        return self._impl.is_contiguous()
 
     def __getitem__(self, indices):
         # Handle single index
@@ -126,21 +153,29 @@ class Tensor:
         if len(indices) != self.ndim:
             raise NotImplementedError("Slicing not yet implemented, use full indices")
 
-        flat_idx = self._compute_flat_index(indices)
-        return self._data[flat_idx]
+        return self._impl[indices]
 
-    def to(self, device: str | Device) -> "Tensor":
+    def __setitem__(self, indices, value):
+        if not isinstance(indices, tuple):
+            indices = (indices,)
+
+        if len(indices) != self.ndim:
+            raise NotImplementedError("Slicing not yet implemented, use full indices")
+
+        self._impl[indices] = value
+
+    def to(self, device: str | Device) -> Self:
         device = Device(device) if isinstance(device, str) else device
-        if device == self.device:
+        if device == self._device:
             return self
 
-        # TODO: Implement CPU <-> CUDA transfer in Phase 3
+        # TODO: Implement CPU <-> CUDA transfer
         raise NotImplementedError("Device transfer not yet implemented")
 
-    def cpu(self) -> "Tensor":
+    def cpu(self) -> Self:
         return self.to("cpu")
 
-    def cuda(self, index: int = 0) -> "Tensor":
+    def cuda(self, index: int = 0) -> Self:
         return self.to(f"cuda:{index}")
 
     def __add__(self, other):
@@ -173,88 +208,24 @@ class Tensor:
 
         return matmul(self, other)
 
-    def __setitem__(self, indices, value):
-        if not isinstance(indices, tuple):
-            indices = (indices,)
-
-        if len(indices) != self.ndim:
-            raise NotImplementedError("Slicing not yet implemented, use full indices")
-
-        flat_idx = self._compute_flat_index(indices)
-        self._data[flat_idx] = value
-
-    def is_contiguous(self) -> bool:
-        """Check if tensor is contiguous in memory (row-major order)."""
-        expected_strides = compute_strides(self._shape)
-        return self._strides == expected_strides and self._offset == 0
-
-    def contiguous(self) -> Self:
-        """Return contiguous tensor (copy if necessary)."""
-        if self.is_contiguous():
-            return self
-
-        new_storage = Storage(self.numel(), self.dtype, self.device)
-        for i in range(self.numel()):
-            indices = []
-            remaining = i
-            for dim in self._shape:
-                indices.append(
-                    remaining // _compute_numel(self._shape[len(indices) + 1 :])
-                )
-                remaining %= _compute_numel(self._shape[len(indices) :])
-            new_storage[i] = self[tuple(indices)]
-
+    def _wrap_impl(self, new_impl) -> Self:
+        """Wrap a new impl in a Tensor, preserving metadata."""
         result = Tensor.__new__(Tensor)
-        result._data = new_storage
-        result._shape = self._shape
-        result._strides = compute_strides(self._shape)
-        result._offset = 0
-        result.dtype = self.dtype
-        result.device = self.device
+        result._impl = new_impl
+        result._backend = self._backend
+        result._dtype = self._dtype
+        result._device = self._device
         result.requires_grad = self.requires_grad
         result.grad = None
         result.grad_fn = None
         return result
 
     def view(self, *new_shape: int) -> Self:
-        if not self.is_contiguous():
-            raise RuntimeError(
-                "view requires contiguous tensor, call .contiguous() first"
-            )
-
-        # Handle -1 dimension
-        new_shape = list(new_shape)
-        neg_idx = None
-        known_numel = 1
-        for i, dim in enumerate(new_shape):
-            if dim == -1:
-                if neg_idx is not None:
-                    raise ValueError("Only one dimension can be -1")
-                neg_idx = i
-            else:
-                known_numel *= dim
-
-        if neg_idx is not None:
-            new_shape[neg_idx] = self.numel() // known_numel
-
-        # Validate total elements
-        new_numel = _compute_numel(tuple(new_shape))
-        if new_numel != self.numel():
-            raise ValueError(
-                f"Cannot reshape tensor of {self.numel()} elements to {new_shape}"
-            )
-
-        result = Tensor.__new__(Tensor)
-        result._data = self._data
-        result._shape = tuple(new_shape)
-        result._strides = compute_strides(tuple(new_shape))
-        result._offset = self._offset
-        result.dtype = self.dtype
-        result.device = self.device
-        result.requires_grad = self.requires_grad
-        result.grad = None
-        result.grad_fn = None
-        return result
+        if self._backend == "cpp":
+            new_impl = self._impl.view(list(new_shape))
+        else:
+            new_impl = self._impl.view(*new_shape)
+        return self._wrap_impl(new_impl)
 
     def reshape(self, *new_shape: int) -> Self:
         try:
@@ -263,55 +234,64 @@ class Tensor:
             return self.contiguous().view(*new_shape)
 
     def transpose(self, dim0: int, dim1: int) -> Self:
-        if dim0 < 0:
-            dim0 = self.ndim + dim0
-        if dim1 < 0:
-            dim1 = self.ndim + dim1
-
-        if dim0 >= self.ndim or dim1 >= self.ndim:
-            raise IndexError(f"Dimension out of range for {self.ndim}D tensor")
-
-        # Swap shape and strides
-        new_shape = list(self._shape)
-        new_strides = list(self._strides)
-        new_shape[dim0], new_shape[dim1] = new_shape[dim1], new_shape[dim0]
-        new_strides[dim0], new_strides[dim1] = new_strides[dim1], new_strides[dim0]
-
-        result = Tensor.__new__(Tensor)
-        result._data = self._data
-        result._shape = tuple(new_shape)
-        result._strides = tuple(new_strides)
-        result._offset = self._offset
-        result.dtype = self.dtype
-        result.device = self.device
-        result.requires_grad = self.requires_grad
-        result.grad = None
-        result.grad_fn = None
-        return result
+        new_impl = self._impl.transpose(dim0, dim1)
+        return self._wrap_impl(new_impl)
 
     @property
     def T(self) -> Self:
         if self.ndim < 2:
             return self
-        return self.transpose(-2, -1)
+        new_impl = self._impl.T
+        return self._wrap_impl(new_impl)
+
+    def contiguous(self) -> Self:
+        if self.is_contiguous():
+            return self
+        new_impl = self._impl.contiguous()
+        return self._wrap_impl(new_impl)
 
     def clone(self) -> Self:
-        result = Tensor.__new__(Tensor)
-        result._data = self._data.copy()
-        result._shape = self._shape
-        result._strides = compute_strides(self._shape)
-        result._offset = 0
-        result.dtype = self.dtype
-        result.device = self.device
-        result.requires_grad = self.requires_grad
-        result.grad = None
-        result.grad_fn = None
-        return result
+        new_impl = self._impl.clone()
+        return self._wrap_impl(new_impl)
+
+    def tolist(self) -> list:
+        """Convert tensor to nested Python list."""
+        if self.ndim == 0:
+            return self[()]
+        if self.ndim == 1:
+            return [self[i] for i in range(self.shape[0])]
+        # Recursive for higher dims
+        return [
+            Tensor.__new__(Tensor)._set_from_slice(self, i).tolist()
+            for i in range(self.shape[0])
+        ]
+
+    def flat_iter(self):
+        """Iterate over elements in flat (row-major) order."""
+        for i in range(self.numel()):
+            indices = self._flat_to_indices(i)
+            yield self[indices]
+
+    def _flat_to_indices(self, flat_idx: int) -> tuple:
+        """Convert flat index to multi-dim indices."""
+        indices = []
+        remaining = flat_idx
+        for dim_idx in range(len(self.shape)):
+            product = 1
+            for d in self.shape[dim_idx + 1 :]:
+                product *= d
+            indices.append(remaining // product)
+            remaining %= product
+        return tuple(indices)
 
     def __repr__(self):
-        return f"Tensor(shape={self._shape}, dtype={self.dtype}, device={self.device})"
+        return (
+            f"Tensor(shape={self.shape}, dtype={self._dtype}, "
+            f"device={self._device}, backend={self._backend})"
+        )
 
     def __str__(self):
-        preview = self._data[:10]
-        suffix = "..." if len(self._data) > 10 else ""
-        return f"tensor(shape={self._shape}, data={preview}{suffix})"
+        n = min(10, self.numel())
+        preview = [val for val, _ in zip(self.flat_iter(), range(n))]
+        suffix = "..." if self.numel() > 10 else ""
+        return f"tensor(shape={self.shape}, data={preview}{suffix})"

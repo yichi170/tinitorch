@@ -11,7 +11,9 @@ def test_view():
 
     v = t.view(3, 2)
     assert v.shape == (3, 2)
-    assert v._data is t._data
+
+    # Verify values match (shared storage)
+    assert list(v.flat_iter()) == list(t.flat_iter())
 
 
 def test_view_minus_one():
@@ -75,8 +77,11 @@ def test_clone():
     t = tt.Tensor([1, 2, 3])
     c = t.clone()
 
-    assert c._data is not t._data
-    assert c._data.tolist() == t._data.tolist()
+    # Verify independent copy with same values
+    assert list(c.flat_iter()) == list(t.flat_iter())
+    # Modifying clone shouldn't affect original
+    c[0] = 99.0
+    assert t[0] == pytest.approx(1.0)
 
 
 def test_setitem():

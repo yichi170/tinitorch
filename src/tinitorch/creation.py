@@ -4,28 +4,14 @@ import random
 
 from .device import Device
 from .dtype import DType
-from .storage import Storage
-from .tensor import Tensor, compute_strides
-
-
-def _make_tensor(storage, shape, dtype, device):
-    result = Tensor.__new__(Tensor)
-    result._data = storage
-    result._shape = shape
-    result._strides = compute_strides(shape)
-    result._offset = 0
-    result.dtype = dtype
-    result.device = device
-    result.requires_grad = False
-    result.grad = None
-    result.grad_fn = None
-    return result
+from .tensor import Tensor
 
 
 def empty(
     *shape: int,
     dtype: DType = DType.FLOAT32,
     device: str | Device = "cpu",
+    backend: str | None = None,
 ) -> Tensor:
     if isinstance(device, str):
         device = Device(device)
@@ -34,69 +20,47 @@ def empty(
     for dim in shape:
         numel *= dim
 
-    storage = Storage(numel, dtype, device)
-    return _make_tensor(storage, shape, dtype, device)
+    data = _build_nested_list(shape, 0.0)
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
 
 
 def zeros(
     *shape: int,
     dtype: DType = DType.FLOAT32,
     device: str | Device = "cpu",
+    backend: str | None = None,
 ) -> Tensor:
-    if isinstance(device, str):
-        device = Device(device)
-
-    numel = 1
-    for dim in shape:
-        numel *= dim
-
-    storage = Storage(numel, dtype, device)
-    storage.fill(0.0)
-    return _make_tensor(storage, shape, dtype, device)
+    data = _build_nested_list(shape, 0.0)
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
 
 
 def ones(
     *shape: int,
     dtype: DType = DType.FLOAT32,
     device: str | Device = "cpu",
+    backend: str | None = None,
 ) -> Tensor:
-    if isinstance(device, str):
-        device = Device(device)
-
-    numel = 1
-    for dim in shape:
-        numel *= dim
-
-    storage = Storage(numel, dtype, device)
-    storage.fill(1.0)
-    return _make_tensor(storage, shape, dtype, device)
+    data = _build_nested_list(shape, 1.0)
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
 
 
 def randn(
     *shape: int,
     dtype: DType = DType.FLOAT32,
     device: str | Device = "cpu",
+    backend: str | None = None,
 ) -> Tensor:
-    if isinstance(device, str):
-        device = Device(device)
+    import math
 
-    numel = 1
-    for dim in shape:
-        numel *= dim
-
-    storage = Storage(numel, dtype, device)
-
-    for i in range(numel):
+    def random_normal():
         u1 = random.random()
         u2 = random.random()
         while u1 == 0:
             u1 = random.random()
-        import math
+        return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
 
-        z = math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
-        storage[i] = z
-
-    return _make_tensor(storage, shape, dtype, device)
+    data = _build_nested_list(shape, random_normal)
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
 
 
 def arange(
@@ -105,23 +69,28 @@ def arange(
     step: float = 1.0,
     dtype: DType = DType.FLOAT32,
     device: str | Device = "cpu",
+    backend: str | None = None,
 ) -> Tensor:
     """Create 1D tensor with values from start to end."""
     if end is None:
         end = start
         start = 0.0
 
-    if isinstance(device, str):
-        device = Device(device)
-
     numel = int((end - start) / step)
     if numel <= 0:
         numel = 0
 
-    storage = Storage(numel, dtype, device)
-    current = start
-    for i in range(numel):
-        storage[i] = current
-        current += step
+    data = [start + i * step for i in range(numel)]
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
 
-    return _make_tensor(storage, (numel,), dtype, device)
+
+def _build_nested_list(shape: tuple, fill_value) -> list:
+    if len(shape) == 0:
+        return fill_value() if callable(fill_value) else fill_value
+
+    if len(shape) == 1:
+        if callable(fill_value):
+            return [fill_value() for _ in range(shape[0])]
+        return [fill_value] * shape[0]
+
+    return [_build_nested_list(shape[1:], fill_value) for _ in range(shape[0])]

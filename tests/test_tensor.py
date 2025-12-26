@@ -33,9 +33,10 @@ def test_tensor_device():
         t = tt.Tensor([1, 2, 3], device="cuda")
 
 
-def test_tensor_data():
+def test_tensor_flat_iter():
+    """Test flat iteration over tensor elements."""
     t = tt.Tensor([[1, 2], [3, 4]])
-    assert t._data.tolist() == pytest.approx([1.0, 2.0, 3.0, 4.0])
+    assert list(t.flat_iter()) == pytest.approx([1.0, 2.0, 3.0, 4.0])
     assert t.shape == (2, 2)
 
 

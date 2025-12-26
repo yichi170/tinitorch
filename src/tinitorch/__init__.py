@@ -1,5 +1,6 @@
 """TiniTorch - A tiny neural network library."""
 
+from .backend import get_available_backends, is_cpp_available
 from .creation import arange, empty, ones, randn, zeros
 from .device import Device
 from .dtype import DType, float32, float64, int32, int64
@@ -17,6 +18,9 @@ __all__ = [
     "int32",
     "int64",
     "Device",
+    # Backend
+    "get_available_backends",
+    "is_cpp_available",
     # Creation
     "empty",
     "zeros",
