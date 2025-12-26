@@ -2,6 +2,8 @@
 
 #include "ttcore/kernels.h"
 
+#include <stdexcept>
+
 namespace ttcore {
 
 Dispatcher registry;
