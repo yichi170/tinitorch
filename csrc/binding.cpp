@@ -1,3 +1,4 @@
+#include "ttcore/dispatch.h"
 #include "ttcore/ops.h"
 #include "ttcore/tensor_impl.h"
 
@@ -88,4 +89,6 @@ NB_MODULE(_C, m) {
              [](ttcore::TensorImpl& self, const std::vector<int64_t>& indices, double value) {
                  self.set(indices, value);
              });
+
+    m.def("dispatch", &ttcore::dispatch);
 }
