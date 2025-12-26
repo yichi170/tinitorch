@@ -38,6 +38,16 @@ public:
     double get(const std::vector<int64_t>& indices) const;
     void set(const std::vector<int64_t>& indices, double value);
 
+    template <typename T>
+    T* data() {
+        return storage_->data_as<T>();
+    }
+
+    template <typename T>
+    const T* data() const {
+        return storage_->data_as<T>();
+    }
+
     TensorImpl view(std::vector<int64_t> new_shape) const;
     TensorImpl transpose(int64_t dim0, int64_t dim1) const;
     TensorImpl T() const;

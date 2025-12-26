@@ -1,6 +1,9 @@
 #include "ttcore/dispatch.h"
 
+#include "ttcore/kernels.h"
+
 namespace ttcore {
+
 Dispatcher registry;
 
 TensorImpl dispatch(const std::string& op, Device device, DType dtype,
@@ -22,26 +25,14 @@ TensorImpl Dispatcher::dispatch(const DispatchKey& key,
     return it->second(inputs);
 }
 
-static void register_kernels() {
-    registry.add_kernel("add", Device::CPU, DType::Float32,
-                        [](const std::vector<TensorImpl*>& inputs) {
-                            if (inputs.size() != 2) {
-                                throw std::runtime_error("add requires exactly 2 inputs");
-                            }
-                            TensorImpl result = inputs[0]->clone();
-                            if (inputs[0]->shape() != inputs[1]->shape()) {
-                                throw std::runtime_error("add requires inputs with the same shape");
-                            }
-                            for (int64_t i = 0; i < result.numel(); i++) {
-                                result.set_flat(i, inputs[0]->get_flat(i) + inputs[1]->get_flat(i));
-                            }
-                            return result;
-                        });
+static void register_all_kernels() {
+    kernels::register_cpu_elementwise_kernels(registry);
 }
 
 struct KernelRegistrar {
-    KernelRegistrar() { register_kernels(); }
+    KernelRegistrar() { register_all_kernels(); }
 };
 
 static KernelRegistrar registrar;
+
 }  // end namespace ttcore

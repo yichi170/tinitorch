@@ -8,6 +8,24 @@ if TYPE_CHECKING:
     from ..tensor import Tensor
 
 
+def _dispatch_cpp(op: str, *tensors: Tensor) -> Tensor:
+    from .. import _C
+
+    tensor = tensors[0]
+    result_impl = _C.dispatch(
+        op,
+        _C.Device.CPU,  # TODO: get from tensor
+        _C.DType.Float32,  # TODO: get from tensor dtype
+        [t._impl for t in tensors],
+    )
+    return tensor._wrap_impl(result_impl)
+
+
+def _use_cpp_dispatch(*tensors: Tensor) -> bool:
+    return all(t._backend == "cpp" for t in tensors)
+
+
+# Python fallback helpers (for python backend)
 def _result_tensor(data: list, source: Tensor, shape: tuple = None) -> Tensor:
     from ..tensor import Tensor
 
@@ -46,6 +64,9 @@ def add(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
+    if _use_cpp_dispatch(a, b):
+        return _dispatch_cpp("add", a, b)
+
     result_data = [a_val + b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
     return _result_tensor(result_data, a)
 
@@ -56,11 +77,17 @@ def mul(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
+    if _use_cpp_dispatch(a, b):
+        return _dispatch_cpp("mul", a, b)
+
     result_data = [a_val * b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
     return _result_tensor(result_data, a)
 
 
 def neg(a: Tensor) -> Tensor:
+    if _use_cpp_dispatch(a):
+        return _dispatch_cpp("neg", a)
+
     result_data = [-val for val in a.flat_iter()]
     return _result_tensor(result_data, a)
 
@@ -71,6 +98,9 @@ def sub(a: Tensor, b: Tensor) -> Tensor:
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
 
+    if _use_cpp_dispatch(a, b):
+        return _dispatch_cpp("sub", a, b)
+
     result_data = [a_val - b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
     return _result_tensor(result_data, a)
 
@@ -80,6 +110,9 @@ def div(a: Tensor, b: Tensor) -> Tensor:
         raise ValueError(
             f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
         )
+
+    if _use_cpp_dispatch(a, b):
+        return _dispatch_cpp("div", a, b)
 
     result_data = [a_val / b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
     return _result_tensor(result_data, a)
@@ -94,6 +127,7 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
             f"matmul shape mismatch: {a.shape} @ {b.shape}, inner dimensions must match"
         )
 
+    # TODO: dispatch to C++ matmul when implemented
     m, k = a.shape
     _, n = b.shape
     result_shape = (m, n)
@@ -110,5 +144,6 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
 
 
 def relu(x: Tensor) -> Tensor:
+    # TODO: dispatch to C++ relu when implemented
     result_data = [val if val > 0 else 0.0 for val in x.flat_iter()]
     return _result_tensor(result_data, x)
