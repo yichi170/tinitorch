@@ -41,5 +41,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE=$(uv run which python)
+          echo "Using Python: $(uv run which python)"
+
+      - name: Build C++ extension
+        run: cmake --build build
+
       - name: Run tests
         run: uv run pytest -v
