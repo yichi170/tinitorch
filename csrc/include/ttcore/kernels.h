@@ -14,7 +14,13 @@ TensorImpl cpu_div_f32(const std::vector<TensorImpl*>& inputs);
 
 TensorImpl cpu_neg_f32(const std::vector<TensorImpl*>& inputs);
 
+TensorImpl cpu_matmul_f32(const std::vector<TensorImpl*>& inputs);
+
+TensorImpl cpu_relu_f32(const std::vector<TensorImpl*>& inputs);
+
 void register_cpu_elementwise_kernels(Dispatcher& registry);
+void register_cpu_matmul_kernels(Dispatcher& registry);
+void register_cpu_activation_kernels(Dispatcher& registry);
 
 }  // end namespace kernels
 }  // end namespace ttcore

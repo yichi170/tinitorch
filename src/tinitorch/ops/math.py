@@ -127,7 +127,9 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
             f"matmul shape mismatch: {a.shape} @ {b.shape}, inner dimensions must match"
         )
 
-    # TODO: dispatch to C++ matmul when implemented
+    if _use_cpp_dispatch(a, b):
+        return _dispatch_cpp("matmul", a, b)
+
     m, k = a.shape
     _, n = b.shape
     result_shape = (m, n)
@@ -144,6 +146,8 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
 
 
 def relu(x: Tensor) -> Tensor:
-    # TODO: dispatch to C++ relu when implemented
+    if _use_cpp_dispatch(x):
+        return _dispatch_cpp("relu", x)
+
     result_data = [val if val > 0 else 0.0 for val in x.flat_iter()]
     return _result_tensor(result_data, x)

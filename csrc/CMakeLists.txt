@@ -3,6 +3,8 @@ add_library(tinitorch_core STATIC
     ttcore/tensor_impl.cpp
     ttcore/dispatch.cpp
     ttcore/kernels/cpu_elementwise.cpp
+    ttcore/kernels/cpu_matmul.cpp
+    ttcore/kernels/cpu_activation.cpp
 )
 
 # Required for linking static library into shared library on Linux

@@ -29,6 +29,8 @@ TensorImpl Dispatcher::dispatch(const DispatchKey& key,
 
 static void register_all_kernels() {
     kernels::register_cpu_elementwise_kernels(registry);
+    kernels::register_cpu_matmul_kernels(registry);
+    kernels::register_cpu_activation_kernels(registry);
 }
 
 struct KernelRegistrar {
