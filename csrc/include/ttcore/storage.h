@@ -5,7 +5,6 @@
 #include "ttcore/dtype.h"
 
 #include <cstdlib>
-#include <memory>
 
 namespace ttcore {
 class Storage {

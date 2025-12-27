@@ -1,5 +1,4 @@
 #include "ttcore/dispatch.h"
-#include "ttcore/ops.h"
 #include "ttcore/tensor_impl.h"
 
 #include <nanobind/nanobind.h>

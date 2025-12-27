@@ -15,3 +15,7 @@ wheels/
 # build
 build
 *.so
+
+# language server
+compile_commands.json
+.cache/
