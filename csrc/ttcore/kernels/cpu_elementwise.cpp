@@ -23,25 +23,38 @@ void check_unary_input(const std::vector<TensorImpl*>& inputs, const char* op_na
     }
 }
 
+std::vector<int64_t> flat_to_indices(int64_t flat_idx, const std::vector<int64_t>& shape) {
+    std::vector<int64_t> indices(shape.size());
+    for (int64_t i = static_cast<int64_t>(shape.size()) - 1; i >= 0; --i) {
+        indices[i] = flat_idx % shape[i];
+        flat_idx /= shape[i];
+    }
+    return indices;
+}
+
 template <typename BinaryOp>
 TensorImpl binary_elementwise(const TensorImpl* a, const TensorImpl* b, BinaryOp op) {
-    TensorImpl result(a->shape(), a->dtype(), a->device());
+    const auto& shape = a->shape();
+    TensorImpl result(shape, a->dtype(), a->device());
     const int64_t n = result.numel();
 
     // TODO: optimize with direct pointer access when contiguous
     for (int64_t i = 0; i < n; ++i) {
-        result.set_flat(i, op(a->get_flat(i), b->get_flat(i)));
+        auto indices = flat_to_indices(i, shape);
+        result.set_flat(i, op(a->get(indices), b->get(indices)));
     }
     return result;
 }
 
 template <typename UnaryOp>
 TensorImpl unary_elementwise(const TensorImpl* a, UnaryOp op) {
-    TensorImpl result(a->shape(), a->dtype(), a->device());
+    const auto& shape = a->shape();
+    TensorImpl result(shape, a->dtype(), a->device());
     const int64_t n = result.numel();
 
     for (int64_t i = 0; i < n; ++i) {
-        result.set_flat(i, op(a->get_flat(i)));
+        auto indices = flat_to_indices(i, shape);
+        result.set_flat(i, op(a->get(indices)));
     }
     return result;
 }

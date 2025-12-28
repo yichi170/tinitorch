@@ -28,6 +28,17 @@ def test_add():
     assert list(c.flat_iter()) == pytest.approx([5.0, 7.0, 9.0])
 
 
+def test_add_2d_T():
+    a = tt.Tensor([[1, 2], [3, 4]])
+    b = a.T
+    c = a + b
+
+    assert list(c.flat_iter()) == pytest.approx([2.0, 5.0, 5.0, 8.0])
+
+    a[0, 0] = 3
+    assert b[0, 0] == 3
+
+
 def test_mul():
     """Test element-wise multiplication."""
     a = tt.Tensor([1, 2, 3])
