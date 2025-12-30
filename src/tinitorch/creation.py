@@ -84,6 +84,23 @@ def arange(
     return Tensor(data, dtype=dtype, device=device, backend=backend)
 
 
+def uniform(
+    *shape: int,
+    low: float = 0.0,
+    high: float = 1.0,
+    dtype: DType = DType.FLOAT32,
+    device: str | Device = "cpu",
+    backend: str | None = None,
+) -> Tensor:
+    """Create tensor with values from uniform distribution [low, high)."""
+
+    def random_uniform():
+        return random.uniform(low, high)
+
+    data = _build_nested_list(shape, random_uniform)
+    return Tensor(data, dtype=dtype, device=device, backend=backend)
+
+
 def _build_nested_list(shape: tuple, fill_value) -> list:
     if len(shape) == 0:
         return fill_value() if callable(fill_value) else fill_value
