@@ -1,3 +1,4 @@
+#include "ttcore/broadcast.h"
 #include "ttcore/kernels.h"
 
 #include <stdexcept>
@@ -11,9 +12,8 @@ void check_binary_inputs(const std::vector<TensorImpl*>& inputs, const char* op_
     if (inputs.size() != 2) {
         throw std::runtime_error(std::string(op_name) + " requires exactly 2 inputs");
     }
-    if (inputs[0]->shape() != inputs[1]->shape()) {
-        throw std::runtime_error(std::string(op_name) +
-                                 " requires inputs with the same shape (no broadcasting yet)");
+    if (!is_broadcastable(inputs[0]->shape(), inputs[1]->shape())) {
+        throw std::runtime_error(std::string(op_name) + ": shapes are not broadcastable");
     }
 }
 
@@ -32,16 +32,35 @@ std::vector<int64_t> flat_to_indices(int64_t flat_idx, const std::vector<int64_t
     return indices;
 }
 
+// Compute flat index using strides (supports broadcast strides with 0)
+int64_t compute_broadcast_index(const std::vector<int64_t>& indices,
+                                const std::vector<int64_t>& strides, int64_t offset) {
+    int64_t idx = offset;
+    for (size_t i = 0; i < indices.size(); ++i) {
+        idx += indices[i] * strides[i];  // stride=0 means broadcast (repeat)
+    }
+    return idx;
+}
+
 template <typename BinaryOp>
-TensorImpl binary_elementwise(const TensorImpl* a, const TensorImpl* b, BinaryOp op) {
-    const auto& shape = a->shape();
-    TensorImpl result(shape, a->dtype(), a->device());
+TensorImpl binary_elementwise_broadcast(const TensorImpl* a, const TensorImpl* b, BinaryOp op) {
+    auto out_shape = broadcast_shapes(a->shape(), b->shape());
+
+    auto a_strides = broadcast_strides(a->shape(), a->strides(), out_shape);
+    auto b_strides = broadcast_strides(b->shape(), b->strides(), out_shape);
+
+    TensorImpl result(out_shape, a->dtype(), a->device());
     const int64_t n = result.numel();
 
-    // TODO: optimize with direct pointer access when contiguous
     for (int64_t i = 0; i < n; ++i) {
-        auto indices = flat_to_indices(i, shape);
-        result.set_flat(i, op(a->get(indices), b->get(indices)));
+        auto indices = flat_to_indices(i, out_shape);
+
+        int64_t a_idx = compute_broadcast_index(indices, a_strides, a->offset());
+        int64_t b_idx = compute_broadcast_index(indices, b_strides, b->offset());
+
+        double val_a = a->get_flat(a_idx);
+        double val_b = b->get_flat(b_idx);
+        result.set_flat(i, op(val_a, val_b));
     }
     return result;
 }
@@ -63,28 +82,28 @@ TensorImpl unary_elementwise(const TensorImpl* a, UnaryOp op) {
 
 TensorImpl cpu_add_f32(const std::vector<TensorImpl*>& inputs) {
     check_binary_inputs(inputs, "add");
-    return binary_elementwise(inputs[0], inputs[1], [](double a, double b) {
+    return binary_elementwise_broadcast(inputs[0], inputs[1], [](double a, double b) {
         return a + b;
     });
 }
 
 TensorImpl cpu_sub_f32(const std::vector<TensorImpl*>& inputs) {
     check_binary_inputs(inputs, "sub");
-    return binary_elementwise(inputs[0], inputs[1], [](double a, double b) {
+    return binary_elementwise_broadcast(inputs[0], inputs[1], [](double a, double b) {
         return a - b;
     });
 }
 
 TensorImpl cpu_mul_f32(const std::vector<TensorImpl*>& inputs) {
     check_binary_inputs(inputs, "mul");
-    return binary_elementwise(inputs[0], inputs[1], [](double a, double b) {
+    return binary_elementwise_broadcast(inputs[0], inputs[1], [](double a, double b) {
         return a * b;
     });
 }
 
 TensorImpl cpu_div_f32(const std::vector<TensorImpl*>& inputs) {
     check_binary_inputs(inputs, "div");
-    return binary_elementwise(inputs[0], inputs[1], [](double a, double b) {
+    return binary_elementwise_broadcast(inputs[0], inputs[1], [](double a, double b) {
         return a / b;
     });
 }

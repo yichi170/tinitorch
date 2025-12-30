@@ -25,7 +25,92 @@ def _use_cpp_dispatch(*tensors: Tensor) -> bool:
     return all(t._backend == "cpp" for t in tensors)
 
 
-# Python fallback helpers (for python backend)
+# ============================================================
+# Broadcasting utilities
+# ============================================================
+
+
+def broadcast_shapes(shape_a: tuple, shape_b: tuple) -> tuple:
+    """Compute broadcasted output shape."""
+    ndim = max(len(shape_a), len(shape_b))
+    # Pad with 1s on the left
+    shape_a = (1,) * (ndim - len(shape_a)) + shape_a
+    shape_b = (1,) * (ndim - len(shape_b)) + shape_b
+
+    result = []
+    for a, b in zip(shape_a, shape_b):
+        if a == b:
+            result.append(a)
+        elif a == 1:
+            result.append(b)
+        elif b == 1:
+            result.append(a)
+        else:
+            raise ValueError(f"Cannot broadcast shapes {shape_a} and {shape_b}")
+    return tuple(result)
+
+
+def _broadcast_strides(shape: tuple, strides: tuple, target_shape: tuple) -> tuple:
+    """Compute strides for broadcasting. Stride=0 means repeat that dimension."""
+    ndim = len(target_shape)
+    offset = ndim - len(shape)
+    result = [0] * ndim
+
+    for i, s in enumerate(shape):
+        target_idx = offset + i
+        if s == target_shape[target_idx]:
+            result[target_idx] = strides[i]
+        elif s == 1:
+            result[target_idx] = 0  # Broadcast: repeat this element
+        else:
+            raise ValueError("Cannot broadcast")
+    return tuple(result)
+
+
+def _flat_to_indices(flat_idx: int, shape: tuple) -> tuple:
+    """Convert flat index to multi-dim indices."""
+    indices = []
+    for dim in reversed(shape):
+        indices.append(flat_idx % dim)
+        flat_idx //= dim
+    return tuple(reversed(indices))
+
+
+def _compute_broadcast_index(indices: tuple, strides: tuple) -> int:
+    """Compute linear index using strides (stride=0 means broadcast)."""
+    return sum(i * s for i, s in zip(indices, strides))
+
+
+def _broadcast_binary_op(a: Tensor, b: Tensor, op) -> Tensor:
+    """Apply binary op with broadcasting (Python backend)."""
+
+    out_shape = broadcast_shapes(a.shape, b.shape)
+
+    a_strides = _broadcast_strides(a.shape, a.strides, out_shape)
+    b_strides = _broadcast_strides(b.shape, b.strides, out_shape)
+
+    numel = 1
+    for d in out_shape:
+        numel *= d
+
+    result_data = []
+    for i in range(numel):
+        indices = _flat_to_indices(i, out_shape)
+        a_idx = _compute_broadcast_index(indices, a_strides)
+        b_idx = _compute_broadcast_index(indices, b_strides)
+
+        a_val = a._impl.get_flat(a._impl.offset + a_idx)
+        b_val = b._impl.get_flat(b._impl.offset + b_idx)
+        result_data.append(op(a_val, b_val))
+
+    return _result_tensor(result_data, a, out_shape)
+
+
+# ============================================================
+# Python fallback helpers
+# ============================================================
+
+
 def _result_tensor(data: list, source: Tensor, shape: tuple = None) -> Tensor:
     from ..tensor import Tensor
 
@@ -58,30 +143,21 @@ def _build_nested(flat_data: list, shape: tuple) -> list:
     return result
 
 
-def add(a: Tensor, b: Tensor) -> Tensor:
-    if a.shape != b.shape:
-        raise ValueError(
-            f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
-        )
+# ============================================================
+# Operations
+# ============================================================
 
+
+def add(a: Tensor, b: Tensor) -> Tensor:
     if _use_cpp_dispatch(a, b):
         return _dispatch_cpp("add", a, b)
-
-    result_data = [a_val + b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
-    return _result_tensor(result_data, a)
+    return _broadcast_binary_op(a, b, lambda x, y: x + y)
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
-    if a.shape != b.shape:
-        raise ValueError(
-            f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
-        )
-
     if _use_cpp_dispatch(a, b):
         return _dispatch_cpp("mul", a, b)
-
-    result_data = [a_val * b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
-    return _result_tensor(result_data, a)
+    return _broadcast_binary_op(a, b, lambda x, y: x * y)
 
 
 def neg(a: Tensor) -> Tensor:
@@ -93,29 +169,15 @@ def neg(a: Tensor) -> Tensor:
 
 
 def sub(a: Tensor, b: Tensor) -> Tensor:
-    if a.shape != b.shape:
-        raise ValueError(
-            f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
-        )
-
     if _use_cpp_dispatch(a, b):
         return _dispatch_cpp("sub", a, b)
-
-    result_data = [a_val - b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
-    return _result_tensor(result_data, a)
+    return _broadcast_binary_op(a, b, lambda x, y: x - y)
 
 
 def div(a: Tensor, b: Tensor) -> Tensor:
-    if a.shape != b.shape:
-        raise ValueError(
-            f"Shape mismatch: {a.shape} vs {b.shape}. Broadcasting not yet implemented."
-        )
-
     if _use_cpp_dispatch(a, b):
         return _dispatch_cpp("div", a, b)
-
-    result_data = [a_val / b_val for a_val, b_val in zip(a.flat_iter(), b.flat_iter())]
-    return _result_tensor(result_data, a)
+    return _broadcast_binary_op(a, b, lambda x, y: x / y)
 
 
 def matmul(a: Tensor, b: Tensor) -> Tensor:

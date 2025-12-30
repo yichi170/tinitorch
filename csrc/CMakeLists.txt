@@ -2,6 +2,7 @@ add_library(tinitorch_core STATIC
     ttcore/dtype.cpp
     ttcore/tensor_impl.cpp
     ttcore/dispatch.cpp
+    ttcore/broadcast.cpp
     ttcore/kernels/cpu_elementwise.cpp
     ttcore/kernels/cpu_matmul.cpp
     ttcore/kernels/cpu_activation.cpp

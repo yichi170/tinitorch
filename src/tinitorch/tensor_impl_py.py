@@ -144,6 +144,12 @@ class TensorImplPy:
         flat_idx = self._compute_flat_index(indices)
         self._storage[flat_idx] = value
 
+    def get_flat(self, idx: int) -> float:
+        return self._storage[idx]
+
+    def set_flat(self, idx: int, value: float) -> None:
+        self._storage[idx] = value
+
     def is_contiguous(self) -> bool:
         """Check if tensor is contiguous in memory (row-major order)."""
         expected_strides = _compute_strides(self._shape)
