@@ -42,3 +42,20 @@ class Module:
 
     def modules(self) -> Iterator[Module]:
         yield from self._modules.values()
+
+    def _extra_repr(self) -> str:
+        return ""
+
+    def __repr__(self) -> str:
+        extra = self._extra_repr()
+        if not self._modules:
+            if extra:
+                return f"{self.__class__.__name__}({extra})"
+            return f"{self.__class__.__name__}()"
+
+        lines = [f"{self.__class__.__name__}("]
+        for name, module in self._modules.items():
+            mod_repr = repr(module).replace("\n", "\n  ")
+            lines.append(f"  ({name}): {mod_repr}")
+        lines.append(")")
+        return ",\n".join(lines)

@@ -40,3 +40,6 @@ class Linear(Module):
         if self.bias is not None:
             y = y + self.bias
         return y
+
+    def _extra_repr(self) -> str:
+        return f"{self.in_features} x {self.out_features}, bias={self.bias is not None}"
