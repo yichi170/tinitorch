@@ -3,22 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ..tensor import Tensor
+from ..tensor import Tensor
 
 
 class Module:
     """Base class for all neural network modules.
 
     Subclasses should override forward() to define computation.
-    Use add_parameter() and add_module() to register components.
     """
 
     def __init__(self):
-        self._parameters: dict[str, Tensor] = {}
-        self._modules: dict[str, Module] = {}
+        # Use object.__setattr__ so self.__setattr__ is not called here.
+        # This prevents problems if self.__setattr__ is changed in the future.
+        # In this code, this behaves the same as self._parameters = {}.
+        object.__setattr__(self, "_parameters", {})
+        object.__setattr__(self, "_modules", {})
+
+    def __setattr__(self, name: str, value: Tensor | Module):
+        if isinstance(value, Tensor):
+            self.add_parameter(name, value)
+        elif isinstance(value, Module):
+            self.add_module(name, value)
+
+        object.__setattr__(self, name, value)
 
     def forward(self, *args, **kwargs) -> Tensor:
         raise NotImplementedError(f"{self.__class__.__name__} must implement forward()")

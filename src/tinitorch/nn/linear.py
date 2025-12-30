@@ -24,14 +24,10 @@ class Linear(Module):
         # weight ~ U(-bound, bound) where bound = 1 / sqrt(in_features)
         bound = 1.0 / math.sqrt(in_features)
 
-        self.weight = self.add_parameter(
-            "weight", uniform(out_features, in_features, low=-bound, high=bound)
-        )
+        self.weight = uniform(out_features, in_features, low=-bound, high=bound)
 
         if bias:
-            self.bias = self.add_parameter(
-                "bias", uniform(out_features, low=-bound, high=bound)
-            )
+            self.bias = uniform(out_features, low=-bound, high=bound)
         else:
             self.bias = None
 

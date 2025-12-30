@@ -103,8 +103,8 @@ class TestMLP:
         class MLP(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.fc1 = self.add_module("fc1", nn.Linear(4, 3))
-                self.fc2 = self.add_module("fc2", nn.Linear(3, 2))
+                self.fc1 = nn.Linear(4, 3)
+                self.fc2 = nn.Linear(3, 2)
 
             def forward(self, x):
                 x = tt.relu(self.fc1(x))
@@ -119,8 +119,8 @@ class TestMLP:
         class MLP(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.fc1 = self.add_module("fc1", nn.Linear(4, 3))
-                self.fc2 = self.add_module("fc2", nn.Linear(3, 2))
+                self.fc1 = nn.Linear(4, 3)
+                self.fc2 = nn.Linear(3, 2)
 
             def forward(self, x):
                 return x
