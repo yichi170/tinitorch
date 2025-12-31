@@ -150,34 +150,63 @@ def _build_nested(flat_data: list, shape: tuple) -> list:
 
 def add(a: Tensor, b: Tensor) -> Tensor:
     if _use_cpp_dispatch(a, b):
-        return _dispatch_cpp("add", a, b)
-    return _broadcast_binary_op(a, b, lambda x, y: x + y)
+        result = _dispatch_cpp("add", a, b)
+    else:
+        result = _broadcast_binary_op(a, b, lambda x, y: x + y)
+
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("add", [a, b], result)
+    return result
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
     if _use_cpp_dispatch(a, b):
-        return _dispatch_cpp("mul", a, b)
-    return _broadcast_binary_op(a, b, lambda x, y: x * y)
+        result = _dispatch_cpp("mul", a, b)
+    else:
+        result = _broadcast_binary_op(a, b, lambda x, y: x * y)
+
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("mul", [a, b], result)
+    return result
 
 
 def neg(a: Tensor) -> Tensor:
     if _use_cpp_dispatch(a):
-        return _dispatch_cpp("neg", a)
+        result = _dispatch_cpp("neg", a)
+    else:
+        result_data = [-val for val in a.flat_iter()]
+        result = _result_tensor(result_data, a)
 
-    result_data = [-val for val in a.flat_iter()]
-    return _result_tensor(result_data, a)
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("neg", [a], result)
+    return result
 
 
 def sub(a: Tensor, b: Tensor) -> Tensor:
     if _use_cpp_dispatch(a, b):
-        return _dispatch_cpp("sub", a, b)
-    return _broadcast_binary_op(a, b, lambda x, y: x - y)
+        result = _dispatch_cpp("sub", a, b)
+    else:
+        result = _broadcast_binary_op(a, b, lambda x, y: x - y)
+
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("sub", [a, b], result)
+    return result
 
 
 def div(a: Tensor, b: Tensor) -> Tensor:
     if _use_cpp_dispatch(a, b):
-        return _dispatch_cpp("div", a, b)
-    return _broadcast_binary_op(a, b, lambda x, y: x / y)
+        result = _dispatch_cpp("div", a, b)
+    else:
+        result = _broadcast_binary_op(a, b, lambda x, y: x / y)
+
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("div", [a, b], result)
+    return result
 
 
 def matmul(a: Tensor, b: Tensor) -> Tensor:
@@ -190,26 +219,36 @@ def matmul(a: Tensor, b: Tensor) -> Tensor:
         )
 
     if _use_cpp_dispatch(a, b):
-        return _dispatch_cpp("matmul", a, b)
+        result = _dispatch_cpp("matmul", a, b)
+    else:
+        m, k = a.shape
+        _, n = b.shape
+        result_shape = (m, n)
 
-    m, k = a.shape
-    _, n = b.shape
-    result_shape = (m, n)
+        result_data = []
+        for i in range(m):
+            for j in range(n):
+                total = 0.0
+                for p in range(k):
+                    total += a[i, p] * b[p, j]
+                result_data.append(total)
 
-    result_data = []
-    for i in range(m):
-        for j in range(n):
-            total = 0.0
-            for p in range(k):
-                total += a[i, p] * b[p, j]
-            result_data.append(total)
+        result = _result_tensor(result_data, a, result_shape)
 
-    return _result_tensor(result_data, a, result_shape)
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("matmul", [a, b], result)
+    return result
 
 
 def relu(x: Tensor) -> Tensor:
     if _use_cpp_dispatch(x):
-        return _dispatch_cpp("relu", x)
+        result = _dispatch_cpp("relu", x)
+    else:
+        result_data = [val if val > 0 else 0.0 for val in x.flat_iter()]
+        result = _result_tensor(result_data, x)
 
-    result_data = [val if val > 0 else 0.0 for val in x.flat_iter()]
-    return _result_tensor(result_data, x)
+    from ..tgir.tracer import record_if_tracing
+
+    record_if_tracing("relu", [x], result)
+    return result

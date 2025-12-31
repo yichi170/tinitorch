@@ -10,6 +10,9 @@ class DType(Enum):
     def __repr__(self):
         return f"tinitorch.{self.value}"
 
+    def __str__(self):
+        return self.value
+
 
 float32 = DType.FLOAT32
 float64 = DType.FLOAT64
