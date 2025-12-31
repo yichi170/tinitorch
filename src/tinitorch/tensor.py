@@ -251,14 +251,24 @@ class Tensor:
 
     def transpose(self, dim0: int, dim1: int) -> Self:
         new_impl = self._impl.transpose(dim0, dim1)
-        return self._wrap_impl(new_impl)
+        result = self._wrap_impl(new_impl)
+
+        from .tgir.tracer import record_if_tracing
+
+        record_if_tracing("transpose", [self], result, {"dim0": dim0, "dim1": dim1})
+        return result
 
     @property
     def T(self) -> Self:
         if self.ndim < 2:
             return self
         new_impl = self._impl.T
-        return self._wrap_impl(new_impl)
+        result = self._wrap_impl(new_impl)
+
+        from .tgir.tracer import record_if_tracing
+
+        record_if_tracing("transpose", [self], result, {"dim0": 0, "dim1": 1})
+        return result
 
     def contiguous(self) -> Self:
         if self.is_contiguous():

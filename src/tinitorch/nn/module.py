@@ -66,4 +66,4 @@ class Module:
             mod_repr = repr(module).replace("\n", "\n  ")
             lines.append(f"  ({name}): {mod_repr}")
         lines.append(")")
-        return ",\n".join(lines)
+        return "\n".join(lines)
