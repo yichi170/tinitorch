@@ -9,31 +9,32 @@ from tinitorch.tgir import Graph, Node, Value, is_tracing, trace
 
 class TestValue:
     def test_value_creation(self):
-        v = Value("x", DType.FLOAT32)
+        v = Value("x", DType.FLOAT32, (2, 3))
         assert v.name == "x"
         assert v.type == DType.FLOAT32
+        assert v.shape == (2, 3)
         assert v.producer is None
 
     def test_value_str(self):
-        v = Value("x", DType.FLOAT32)
-        assert str(v) == "%x(float32)"
+        v = Value("x", DType.FLOAT32, (2, 3))
+        assert str(v) == "%x: float32[2x3]"
 
     def test_value_repr(self):
-        v = Value("x", DType.FLOAT32)
-        assert repr(v) == "Value(x, float32)"
+        v = Value("x", DType.FLOAT32, (2, 3))
+        assert repr(v) == "Value(x, float32, (2, 3))"
 
 
 class TestNode:
     def test_node_creation(self):
-        v1 = Value("a", DType.FLOAT32)
-        v2 = Value("b", DType.FLOAT32)
+        v1 = Value("a", DType.FLOAT32, (2, 3))
+        v2 = Value("b", DType.FLOAT32, (2, 3))
         node = Node("add", [v1, v2], [], {})
         assert node.op == "add"
         assert len(node.inputs) == 2
         assert len(node.outputs) == 0
 
     def test_node_with_attrs(self):
-        v = Value("x", DType.FLOAT32)
+        v = Value("x", DType.FLOAT32, (3, 4))
         node = Node("conv", [v], [], {"kernel": 3, "stride": 1})
         assert node.attrs["kernel"] == 3
         assert node.attrs["stride"] == 1
@@ -49,22 +50,23 @@ class TestGraph:
 
     def test_graph_add_input(self):
         g = Graph()
-        v = g.add_input("x", DType.FLOAT32)
+        v = g.add_input("x", DType.FLOAT32, (2, 3))
         assert len(g.inputs) == 1
         assert v.name == "x"
         assert v.type == DType.FLOAT32
+        assert v.shape == (2, 3)
 
     def test_graph_add_node(self):
         g = Graph()
-        v1 = g.add_input("a", DType.FLOAT32)
-        v2 = g.add_input("b", DType.FLOAT32)
+        v1 = g.add_input("a", DType.FLOAT32, (2, 3))
+        v2 = g.add_input("b", DType.FLOAT32, (2, 3))
         node = g.add_node("add", [v1, v2], {})
         assert len(g.nodes) == 1
         assert node.op == "add"
 
     def test_graph_set_output(self):
         g = Graph()
-        v = g.add_input("x", DType.FLOAT32)
+        v = g.add_input("x", DType.FLOAT32, (2, 3))
         g.set_output([v])
         assert len(g.outputs) == 1
 
