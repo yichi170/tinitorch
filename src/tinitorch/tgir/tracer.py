@@ -50,7 +50,7 @@ class TraceContext:
 
     def register_input(self, tensor: Tensor) -> Value:
         name = f"arg{len(self.graph.inputs)}"
-        value = self.graph.add_input(name, tensor.dtype)
+        value = self.graph.add_input(name, tensor.dtype, tensor.shape)
         self._tensor_to_value[id(tensor)] = value
         return value
 
@@ -75,7 +75,7 @@ class TraceContext:
             input_values.append(v)
 
         output_name = self._next_value_name()
-        output_value = Value(name=output_name, type=output.dtype)
+        output_value = Value(name=output_name, type=output.dtype, shape=output.shape)
 
         node = self.graph.add_node(op, input_values, attrs or {})
 

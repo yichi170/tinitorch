@@ -14,13 +14,15 @@ if TYPE_CHECKING:
 class Value:
     name: str
     type: DType
+    shape: tuple[int, ...]
     producer: Node | None = None  # The node that produced this value
 
     def __str__(self) -> str:
-        return f"%{self.name}({self.type})"
+        shape_str = "x".join(str(d) for d in self.shape)
+        return f"%{self.name}: {self.type}[{shape_str}]"
 
     def __repr__(self) -> str:
-        return f"Value({self.name}, {self.type})"
+        return f"Value({self.name}, {self.type}, {self.shape})"
 
 
 @dataclass
@@ -43,8 +45,8 @@ class Graph:
         self.inputs: list[Value] = []
         self.outputs: list[Value] = []
 
-    def add_input(self, name: str, type: DType) -> Value:
-        value = Value(name, type)
+    def add_input(self, name: str, dtype: DType, shape: tuple[int, ...]) -> Value:
+        value = Value(name, dtype, shape)
         self.inputs.append(value)
         return value
 
