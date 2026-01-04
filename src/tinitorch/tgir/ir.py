@@ -58,6 +58,16 @@ class Graph:
         self.nodes.append(node)
         return node
 
+    def to_json(self, indent: int | None = 2) -> str:
+        from .serialization import to_json
+
+        return to_json(self, indent)
+
+    def export(self, path: str) -> None:
+        from .serialization import export
+
+        export(self, path)
+
     def __repr__(self) -> str:
         lines = [f"Graph({self.name}): {{"]
         lines.append(f"    Inputs: {self.inputs}")
