@@ -178,6 +178,32 @@ class TestTraceNN:
         # (transpose + matmul + add) + relu + (transpose + matmul + add) = 7 nodes
         assert len(graph.nodes) == 7
 
+    def test_trace_module(self):
+        import tinitorch.nn as nn
+
+        class MLP(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = nn.Linear(4, 3)  # weight (3,4) + bias (3,) = 2 params
+                self.fc2 = nn.Linear(3, 2)  # weight (2,3) + bias (2,) = 2 params
+
+            def forward(self, x):
+                x = tt.relu(self.fc1(x))
+                return self.fc2(x)
+
+        model = MLP()
+        x = tt.randn(2, 4)
+        graph = trace(model, x)
+
+        # Graph inputs: 4 parameters + 1 user input = 5
+        assert len(graph.inputs) == 5
+        assert len(graph.outputs) == 1
+        # fc1: transpose + matmul + add = 3
+        # relu = 1
+        # fc2: transpose + matmul + add = 3
+        # Total = 7 nodes
+        assert len(graph.nodes) == 7
+
 
 class TestGraphStructure:
     def test_value_producer_linked(self):

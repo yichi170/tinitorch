@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from .ir import Graph, Value
 
 if TYPE_CHECKING:
+    from ..nn import Module
     from ..tensor import Tensor
 
 # ============================================================
@@ -31,10 +32,10 @@ def get_trace_context() -> TraceContext | None:
 class TraceContext:
     """Holds state during graph tracing.
 
-    The TraceContext maintains:
-    - Graph
-    - Dict[id(Tensor), Value]
-    - value_counter: A counter for generating unique value names
+    Attributes:
+        Graph: The computation graph being built
+        _tensor_to_value: Dict[id(Tensor), Value]
+        _value_counter: Counter for generating unique value names
     """
 
     def __init__(self, graph_name: str = "traced"):
@@ -91,40 +92,75 @@ class TraceContext:
 # ============================================================
 
 
-def trace(fn: Callable[..., Tensor], *example_inputs: Tensor) -> Graph:
-    """Trace a function to capture its computation graph.
+def trace(target: Callable | Module, *example_inputs: Tensor) -> Graph:
+    """Trace a function or module to capture its computation graph.
+
+    Args:
+        target: A callable (function) or nn.Module to trace
+        example_inputs: Example input tensors for shape/dtype inference
+
+    Returns:
+        Graph representing the traced computation
 
     Example:
         ```python
         import tinitorch as tt
+        from tinitorch.tgir import trace
 
         def add_fn(a, b):
             return a + b
 
-        x = tt.randn(2, 3)
-        y = tt.randn(2, 3)
-        graph = tt.tgir.trace(add_fn, x, y)
-        print(graph)
+        x, y = tt.randn(2, 3), tt.randn(2, 3)
+        graph = trace(add_fn, x, y)
+
+        model = nn.Linear(4, 2)
+        graph = trace(model, tt.randn(3, 4))
         ```
+
     Note:
-        - Python control flow is not supported:
-            ```python
-            x = tt.randn(2, 3)
-            if x.sum() > 0:
-                return x
-            else:
-                return -x
-            ```
+        Python control flow is not supported.
     """
+
+    from ..nn import Module
+
+    if isinstance(target, Module):
+        return _trace_module(target, *example_inputs)
+    elif callable(target):
+        return _trace_callable(target, *example_inputs)
+    else:
+        raise TypeError(f"Expected callable or nn.Module, got {type(target).__name__}")
+
+
+def _trace_callable(fn: Callable[..., Tensor], *example_inputs: Tensor) -> Graph:
     ctx = TraceContext()
 
     for tensor in example_inputs:
         ctx.register_input(tensor)
 
+    return _execute_with_tracing(ctx, fn, *example_inputs)
+
+
+def _trace_module(module: Module, *example_inputs: Tensor) -> Graph:
+    ctx = TraceContext()
+
+    for param in module.parameters():
+        ctx.register_input(param)
+
+    for tensor in example_inputs:
+        ctx.register_input(tensor)
+
+    return _execute_with_tracing(ctx, module, *example_inputs)
+
+
+def _execute_with_tracing(
+    ctx: TraceContext,
+    fn: Callable,
+    *inputs: Tensor,
+) -> Graph:
+    """Execute a function with tracing enabled and finalize the graph."""
     token = _trace_context.set(ctx)
     try:
-        # Executes `fn` while recording all tensor operations into a Graph IR.
-        output = fn(*example_inputs)
+        output = fn(*inputs)
     finally:
         _trace_context.reset(token)
 
@@ -134,6 +170,11 @@ def trace(fn: Callable[..., Tensor], *example_inputs: Tensor) -> Graph:
             ctx.graph.set_output([out_value])
 
     return ctx.graph
+
+
+# ============================================================
+# Op Recording Hook
+# ============================================================
 
 
 def record_if_tracing(
